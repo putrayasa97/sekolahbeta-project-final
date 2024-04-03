@@ -21,25 +21,23 @@ func main() {
 
 	listDatabases := loadListDB()
 
-	jmlGoroutine := 10
+	countGorotine := 5
 
+	// Pipeline 1 DumpDatabases
 	var dumpDbChanTemp []<-chan string
-
-	for i := 0; i < jmlGoroutine; i++ {
+	for i := 0; i < countGorotine; i++ {
 		dumpDbChanTemp = append(dumpDbChanTemp, dumpDB(listDatabases))
 	}
+	dumpDbChan := mergedChan(dumpDbChanTemp...)
 
-	dumpDbChan := appendChan(dumpDbChanTemp...)
-
+	// Pipeline 2 archiveSqlToZip
 	var zipChanTemp []<-chan string
-
-	for i := 0; i < jmlGoroutine; i++ {
+	for i := 0; i < countGorotine; i++ {
 		zipChanTemp = append(zipChanTemp, zipDB(dumpDbChan))
 	}
+	archiveZipChan := mergedChan(zipChanTemp...)
 
-	dumpZipChan := appendChan(zipChanTemp...)
-
-	for value := range dumpZipChan {
+	for value := range archiveZipChan {
 		fmt.Println(value)
 	}
 }
@@ -69,29 +67,37 @@ func loadListDB() <-chan model.Database {
 
 func dumpDB(listDB <-chan model.Database) <-chan string {
 	dbChan := make(chan string)
+	var wg sync.WaitGroup
 
 	go func() {
+		defer close(dbChan)
 		for v := range listDB {
-			timesTamp := time.Now().Format("2006-01-02-15-04-05")
-			uuid := uuid.New().String()
-			nameFile := fmt.Sprintf("sql/mysql-%s-%s-%s.sql", timesTamp, v.DatabaseName, uuid)
-			file, err := os.Create(nameFile)
-			if err != nil {
-				panic(err)
-			}
-			password := fmt.Sprintf("-p%s", v.DBPassword)
-			cmd := exec.Command("mysqldump", "-h", v.DBHost, "-P", v.DBPort, "-u", v.DBUsername, password, v.DatabaseName)
-			cmd.Stdout = file
+			wg.Add(1)
+			go func(v model.Database) {
+				defer wg.Done()
+				timesTamp := time.Now().Format("2006-01-02-15-04-05")
+				uuid := uuid.New().String()
+				nameFile := fmt.Sprintf("sql/mysql-%s-%s-%s.sql", timesTamp, v.DatabaseName, uuid)
+				file, err := os.Create(nameFile)
+				if err != nil {
+					fmt.Printf("Error creating file %s, Error: %s\n", nameFile, err)
+					return
+				}
+				defer file.Close()
 
-			err = cmd.Run()
-			if err != nil {
-				panic(err)
-			}
+				cmd := exec.Command("mysqldump", "-h", v.DBHost, "-P", v.DBPort, "-u", v.DBUsername, "-p"+v.DBPassword, v.DatabaseName)
+				cmd.Stdout = file
 
-			dbChan <- fmt.Sprintf("mysql-%s-%s-%s.sql", timesTamp, v.DatabaseName, uuid)
+				err = cmd.Run()
+				if err != nil {
+					fmt.Printf("Error running mysqldump %s, Error: %s\n", nameFile, err)
+					return
+				}
+
+				dbChan <- fmt.Sprintf("mysql-%s-%s-%s.sql", timesTamp, v.DatabaseName, uuid)
+			}(v)
 		}
-
-		close(dbChan)
+		wg.Wait()
 	}()
 
 	return dbChan
@@ -104,24 +110,30 @@ func zipDB(fileNameCh <-chan string) <-chan string {
 		for fileName := range fileNameCh {
 			fileNameSql := fmt.Sprintf("sql/%s", fileName)
 			fileNameZip := fmt.Sprintf("zip/%s.zip", fileName)
+
 			archive, err := os.Create(fileNameZip)
 			if err != nil {
-				panic(err)
+				fmt.Printf("Error creating zip file %s, Error : %s\n", fileNameZip, err)
+				continue
 			}
 
 			zipWriter := zip.NewWriter(archive)
 
 			f, err := os.Open(fileNameSql)
 			if err != nil {
-				panic(err)
+				fmt.Printf("Error opening sql file %s, Error : %s\n", fileName, err)
+				continue
 			}
 
 			w, err := zipWriter.Create(fileName)
 			if err != nil {
-				panic(err)
+				fmt.Printf("Error creating file %s in zip, Error : %s\n", fileName, err)
+				continue
 			}
+
 			if _, err := io.Copy(w, f); err != nil {
-				panic(err)
+				fmt.Printf("Error copying file %s to zip , Error : %s\n", fileName, err)
+				continue
 			}
 
 			archive.Close()
@@ -135,19 +147,19 @@ func zipDB(fileNameCh <-chan string) <-chan string {
 	return zipChan
 }
 
-func appendChan(chanMany ...<-chan string) <-chan string {
+func mergedChan(chanMany ...<-chan string) <-chan string {
 	wg := sync.WaitGroup{}
 
 	mergedChan := make(chan string)
 
 	wg.Add(len(chanMany))
-	for _, ch := range chanMany {
-		go func(ch <-chan string) {
-			for file := range ch {
-				mergedChan <- file
+	for _, eachChan := range chanMany {
+		go func(eachChan <-chan string) {
+			for eachChanData := range eachChan {
+				mergedChan <- eachChanData
 			}
 			wg.Done()
-		}(ch)
+		}(eachChan)
 	}
 
 	go func() {
