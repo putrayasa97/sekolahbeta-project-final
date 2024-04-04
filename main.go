@@ -91,6 +91,7 @@ func dumpDB(listDB <-chan model.Database) <-chan string {
 				err = cmd.Run()
 				if err != nil {
 					fmt.Printf("Error running mysqldump %s, Error: %s\n", nameFile, err)
+					os.Remove(nameFile)
 					return
 				}
 
