@@ -45,7 +45,7 @@ func main() {
 func loadListDB() <-chan model.Database {
 	dbChan := make(chan model.Database)
 	var listDatabases []model.Database
-	dataJson, err := os.ReadFile("databases.json")
+	dataJson, err := os.ReadFile("config/databases.json")
 	if err != nil {
 		fmt.Println(err)
 	}
