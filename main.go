@@ -67,38 +67,32 @@ func loadListDB() <-chan model.Database {
 
 func dumpDB(listDB <-chan model.Database) <-chan string {
 	dbChan := make(chan string)
-	var wg sync.WaitGroup
 
 	go func() {
 		defer close(dbChan)
 		for v := range listDB {
-			wg.Add(1)
-			go func(v model.Database) {
-				defer wg.Done()
-				timesTamp := time.Now().Format("2006-01-02-15-04-05")
-				uuid := uuid.New().String()
-				nameFile := fmt.Sprintf("sql/mysql-%s-%s-%s.sql", timesTamp, v.DatabaseName, uuid)
-				file, err := os.Create(nameFile)
-				if err != nil {
-					fmt.Printf("Error creating file %s, Error: %s\n", nameFile, err)
-					return
-				}
-				defer file.Close()
+			timesTamp := time.Now().Format("2006-01-02-15-04-05")
+			uuid := uuid.New().String()
+			nameFile := fmt.Sprintf("sql/mysql-%s-%s-%s.sql", timesTamp, v.DatabaseName, uuid)
+			file, err := os.Create(nameFile)
+			if err != nil {
+				fmt.Printf("Error creating file %s, Error: %s\n", nameFile, err)
+				return
+			}
+			defer file.Close()
 
-				cmd := exec.Command("mysqldump", "-h", v.DBHost, "-P", v.DBPort, "-u", v.DBUsername, "-p"+v.DBPassword, v.DatabaseName)
-				cmd.Stdout = file
+			cmd := exec.Command("mysqldump", "-h", v.DBHost, "-P", v.DBPort, "-u", v.DBUsername, "-p"+v.DBPassword, v.DatabaseName)
+			cmd.Stdout = file
 
-				err = cmd.Run()
-				if err != nil {
-					fmt.Printf("Error running mysqldump %s, Error: %s\n", nameFile, err)
-					os.Remove(nameFile)
-					return
-				}
+			err = cmd.Run()
+			if err != nil {
+				fmt.Printf("Error running mysqldump %s, Error: %s\n", nameFile, err)
+				os.Remove(nameFile)
+				return
+			}
 
-				dbChan <- fmt.Sprintf("mysql-%s-%s-%s.sql", timesTamp, v.DatabaseName, uuid)
-			}(v)
+			dbChan <- fmt.Sprintf("mysql-%s-%s-%s.sql", timesTamp, v.DatabaseName, uuid)
 		}
-		wg.Wait()
 	}()
 
 	return dbChan
@@ -153,6 +147,11 @@ func mergedChan(chanMany ...<-chan string) <-chan string {
 
 	mergedChan := make(chan string)
 
+	go func() {
+		wg.Wait()
+		close(mergedChan)
+	}()
+
 	wg.Add(len(chanMany))
 	for _, eachChan := range chanMany {
 		go func(eachChan <-chan string) {
@@ -162,11 +161,6 @@ func mergedChan(chanMany ...<-chan string) <-chan string {
 			wg.Done()
 		}(eachChan)
 	}
-
-	go func() {
-		wg.Wait()
-		close(mergedChan)
-	}()
 
 	return mergedChan
 }
