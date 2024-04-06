@@ -68,11 +68,13 @@ func getListDB(pathFile *PathFile) <-chan model.Database {
 	dataJson, err := os.ReadFile(pathFile.PathDBJson)
 	if err != nil {
 		fmt.Println(err)
+		panic(err)
 	}
 
 	err = json.Unmarshal(dataJson, &listDatabases)
 	if err != nil {
 		fmt.Println(err)
+		panic(err)
 	}
 
 	go func() {
@@ -135,7 +137,7 @@ func proccessZipDB(fileNameCh <-chan string, pathFile *PathFile) <-chan string {
 			archive, err := os.Create(pathNameFileZip)
 			if err != nil {
 				fmt.Printf("Error creating zip file %s, Error : %s\n", pathNameFileZip, err)
-				continue
+				return
 			}
 
 			zipWriter := zip.NewWriter(archive)
@@ -143,18 +145,18 @@ func proccessZipDB(fileNameCh <-chan string, pathFile *PathFile) <-chan string {
 			f, err := os.Open(pathNameFileSql)
 			if err != nil {
 				fmt.Printf("Error opening sql file %s, Error : %s\n", fileName, err)
-				continue
+				return
 			}
 
 			w, err := zipWriter.Create(fileName)
 			if err != nil {
 				fmt.Printf("Error creating file %s in zip, Error : %s\n", fileName, err)
-				continue
+				return
 			}
 
 			if _, err := io.Copy(w, f); err != nil {
 				fmt.Printf("Error copying file %s to zip , Error : %s\n", fileName, err)
-				continue
+				return
 			}
 
 			archive.Close()
