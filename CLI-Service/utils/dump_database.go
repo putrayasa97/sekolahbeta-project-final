@@ -20,6 +20,14 @@ type PathFile struct {
 	PathFileZip string
 }
 
+// Proses DumpDatabase
+// TODO 1. Memanggil list databases dari file json
+// TODO 2. Proses dump databases
+// TODO 3. Proses zip file sql yaang telah di dump
+// TODO 4. Proses Upload file ke webservice
+// TODO 5. Hapus file temporary sql dan zip ketik selesai proses upload
+// Proses ini menggunakan konsep Concurency: Pipeline Pattern
+
 func DumpDatabase() {
 	pathFile := PathFile{
 		PathDBJson:  "config/databases.json",
