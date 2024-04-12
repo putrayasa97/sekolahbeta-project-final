@@ -1,16 +1,16 @@
 version: '3'
 services:
 
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: golang
-    container_name: app
-    restart: unless-stopped
-    working_dir: /app
-    volumes:
-      - .:/app
+  # app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   image: golang
+  #   container_name: app
+  #   restart: unless-stopped
+  #   working_dir: /app
+  #   volumes:
+  #     - .:/app
 
   #MySQL
   mysql:
@@ -24,7 +24,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_USER: golang
       MYSQL_PASSWORD: "golang"
-      MYSQL_DATABASE: golang
+      MYSQL_DATABASE: sekolah_beta
     networks:
       default:
         aliases:

@@ -7,28 +7,7 @@
         "db_password": "root"
     },
     {
-        "database_name": "dpmptsp_website",
-        "db_host": "localhost",
-        "db_port": "8889",
-        "db_username": "root",
-        "db_password": "root"
-    },
-    {
         "database_name": "livewire",
-        "db_host": "localhost",
-        "db_port": "8889",
-        "db_username": "root",
-        "db_password": "root"
-    },
-    {
-        "database_name": "mpp_api",
-        "db_host": "localhost",
-        "db_port": "8889",
-        "db_username": "root",
-        "db_password": "root"
-    },
-    {
-        "database_name": "pelayanan_publik",
         "db_host": "localhost",
         "db_port": "8889",
         "db_username": "root",
@@ -57,13 +36,6 @@
     },
     {
         "database_name": "sekolahbetagorm",
-        "db_host": "localhost",
-        "db_port": "8889",
-        "db_username": "root",
-        "db_password": "root"
-    },
-    {
-        "database_name": "simbg",
         "db_host": "localhost",
         "db_port": "8889",
         "db_username": "root",

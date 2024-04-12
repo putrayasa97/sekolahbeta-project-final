@@ -2,10 +2,13 @@ package utils
 
 import (
 	"archive/zip"
+	"bytes"
 	"cli-service/model"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
+	"net/http"
 	"os"
 	"os/exec"
 	"sync"
@@ -55,8 +58,16 @@ func DumpDatabase() {
 	}
 	archiveZipChan := proccessMergeChan(zipChanTemp...)
 
-	for value := range archiveZipChan {
+	// Pipeline 3 UploadFileToService
+	var uploadChanTemp []<-chan string
+	for i := 0; i < countGorotine; i++ {
+		uploadChanTemp = append(uploadChanTemp, proccessUploadFile(archiveZipChan, &pathFile))
+	}
+	uploadFileChan := proccessMergeChan(uploadChanTemp...)
+
+	for value := range uploadFileChan {
 		fmt.Println(value)
+		os.Remove(value)
 	}
 }
 
@@ -163,11 +174,63 @@ func proccessZipDB(fileNameCh <-chan string, pathFile *PathFile) <-chan string {
 			zipWriter.Close()
 			f.Close()
 
-			zipChan <- pathNameFileZip
+			zipChan <- fmt.Sprintf("%s.zip", fileName)
 		}
 	}()
 
 	return zipChan
+}
+
+// fungsi untuk proses upload file ke service
+func proccessUploadFile(fileNameCh <-chan string, pathFile *PathFile) <-chan string {
+	uploadChan := make(chan string)
+	go func() {
+		defer close(uploadChan)
+		for fileName := range fileNameCh {
+
+			serviceURL := os.Getenv("WEB_SERVICE_URL")
+			uploadURL := fmt.Sprintf("%s/bckp-database/%s", serviceURL, fileName)
+			pathNameFileZip := fmt.Sprintf("%s/%s", pathFile.PathFileZip, fileName)
+
+			file, err := os.Open(pathNameFileZip)
+			if err != nil {
+				panic(err)
+			}
+
+			var requestBody bytes.Buffer
+			writer := multipart.NewWriter(&requestBody)
+
+			fileField, err := writer.CreateFormFile("zip_file", fileName)
+			if err != nil {
+				panic(err)
+			}
+
+			_, err = io.Copy(fileField, file)
+			if err != nil {
+				panic(err)
+			}
+			writer.Close()
+
+			req, err := http.NewRequest("POST", uploadURL, &requestBody)
+			if err != nil {
+				panic(err)
+			}
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			if err != nil {
+				panic(err)
+			}
+
+			resp.Body.Close()
+			file.Close()
+
+			uploadChan <- pathNameFileZip
+		}
+	}()
+
+	return uploadChan
 }
 
 // fungsi untuk proses mengabungkan channel
@@ -193,8 +256,3 @@ func proccessMergeChan(chanMany ...<-chan string) <-chan string {
 
 	return mergedChan
 }
-
-// fungsi untuk proses hapus file temporary sql & zip
-// func proccessRemoveFileTemp() {
-
-// }
