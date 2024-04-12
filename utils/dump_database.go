@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"cli-service/model"
+	"cli-service/utils/logger"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -89,12 +90,14 @@ func getListDB(pathFile *PathFile) <-chan model.Database {
 	dataJson, err := os.ReadFile(pathFile.PathDBJson)
 	if err != nil {
 		fmt.Println(err)
+		logger.Error(err)
 		panic(err)
 	}
 
 	err = json.Unmarshal(dataJson, &listDatabases)
 	if err != nil {
 		fmt.Println(err)
+		logger.Error(err)
 		panic(err)
 	}
 
@@ -123,7 +126,9 @@ func proccessDumpDB(listDB <-chan model.Database, pathFile *PathFile) <-chan Nam
 
 			file, err := os.Create(pathNameFileSql)
 			if err != nil {
-				fmt.Printf("Error creating file %s, Error: %s\n", pathNameFileSql, err)
+				mErr := fmt.Sprintf("Error creating file %s, Error: %s\n", pathNameFileSql, err)
+				fmt.Println(mErr)
+				logger.Error(mErr)
 				return
 			}
 
@@ -132,7 +137,9 @@ func proccessDumpDB(listDB <-chan model.Database, pathFile *PathFile) <-chan Nam
 
 			err = cmd.Run()
 			if err != nil {
-				fmt.Printf("Error running mysqldump %s, Error: %s\n", pathNameFileSql, err)
+				mErr := fmt.Sprintf("Error running mysqldump %s, Error: %s\n", pathNameFileSql, err)
+				fmt.Println(mErr)
+				logger.Error(mErr)
 				os.Remove(pathNameFileSql)
 				return
 			}
@@ -162,7 +169,9 @@ func proccessZipDB(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan NameFi
 
 			archive, err := os.Create(pathNameFileZip)
 			if err != nil {
-				fmt.Printf("Error creating zip file %s, Error : %s\n", pathNameFileZip, err)
+				mErr := fmt.Sprintf("Error creating zip file %s, Error : %s\n", pathNameFileZip, err)
+				fmt.Println(mErr)
+				logger.Error(mErr)
 				return
 			}
 
@@ -170,18 +179,24 @@ func proccessZipDB(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan NameFi
 
 			f, err := os.Open(pathNameFileSql)
 			if err != nil {
-				fmt.Printf("Error opening sql file %s, Error : %s\n", fileName.NameFileSql, err)
+				mErr := fmt.Sprintf("Error opening sql file %s, Error : %s\n", fileName.NameFileSql, err)
+				fmt.Println(mErr)
+				logger.Error(mErr)
 				return
 			}
 
 			w, err := zipWriter.Create(fileName.NameFileSql)
 			if err != nil {
-				fmt.Printf("Error creating file %s in zip, Error : %s\n", fileName.NameFileSql, err)
+				mErr := fmt.Sprintf("Error creating file %s in zip, Error : %s\n", fileName.NameFileSql, err)
+				fmt.Println(mErr)
+				logger.Error(mErr)
 				return
 			}
 
 			if _, err := io.Copy(w, f); err != nil {
-				fmt.Printf("Error copying file %s to zip , Error : %s\n", fileName.NameFileSql, err)
+				mErr := fmt.Sprintf("Error copying file %s to zip , Error : %s\n", fileName.NameFileSql, err)
+				fmt.Println(mErr)
+				logger.Error(mErr)
 				return
 			}
 
@@ -212,7 +227,9 @@ func proccessUploadFile(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan N
 
 			file, err := os.Open(pathNameFileZip)
 			if err != nil {
-				fmt.Printf("Error open file %s to zip , Error : %s\n", fileName.NameFileZip, err)
+				mErr := fmt.Sprintf("Error open file %s to zip , Error : %s\n", fileName.NameFileZip, err)
+				fmt.Println(mErr)
+				logger.Error(mErr)
 				return
 			}
 
@@ -221,20 +238,26 @@ func proccessUploadFile(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan N
 
 			fileField, err := writer.CreateFormFile("zip_file", fileName.NameFileZip)
 			if err != nil {
-				fmt.Printf("Error create form zip_file %s , Error : %s\n", fileName.NameFileZip, err)
+				mErr := fmt.Sprintf("Error create form zip_file %s , Error : %s\n", fileName.NameFileZip, err)
+				fmt.Println(mErr)
+				logger.Error(mErr)
 				return
 			}
 
 			_, err = io.Copy(fileField, file)
 			if err != nil {
-				fmt.Printf("Error copying file %s , Error : %s\n", fileName.NameFileZip, err)
+				mErr := fmt.Sprintf("Error copying file %s , Error : %s\n", fileName.NameFileZip, err)
+				fmt.Println(mErr)
+				logger.Error(mErr)
 				return
 			}
 			writer.Close()
 
 			req, err := http.NewRequest("POST", uploadURL, &requestBody)
 			if err != nil {
-				fmt.Printf("Error new request %s , Error : %s\n", uploadURL, err)
+				mErr := fmt.Sprintf("Error new request %s , Error : %s\n", uploadURL, err)
+				fmt.Println(mErr)
+				logger.Error(mErr)
 				return
 			}
 			req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -242,7 +265,9 @@ func proccessUploadFile(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan N
 			client := &http.Client{}
 			resp, err := client.Do(req)
 			if err != nil {
-				fmt.Printf("Error send request %s, Error : %s\n", uploadURL, err)
+				mErr := fmt.Sprintf("Error send request %s, Error : %s\n", uploadURL, err)
+				fmt.Println(mErr)
+				logger.Error(mErr)
 				return
 			}
 
