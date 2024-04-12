@@ -78,7 +78,8 @@ func DumpDatabase() {
 		os.Remove(pathFileSql)
 		os.Remove(pathFileZip)
 
-		fmt.Printf("Database: %s Backup Success \n", value.NameFileZip)
+		mErr := fmt.Sprintf("Database: %s Backup Success \n", value.NameFileZip)
+		logger.Info(mErr)
 	}
 }
 
