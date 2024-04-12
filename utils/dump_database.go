@@ -23,6 +23,11 @@ type PathFile struct {
 	PathFileZip string
 }
 
+type NameFile struct {
+	NameFileSql string
+	NameFileZip string
+}
+
 // Proses DumpDatabase
 // TODO 1. Memanggil list databases dari file json
 // TODO 2. Proses dump databases
@@ -45,29 +50,34 @@ func DumpDatabase() {
 	countGorotine := 5
 
 	// Pipeline 1 DumpDatabases
-	var dumpDbChanTemp []<-chan string
+	var dumpDbChanTemp []<-chan NameFile
 	for i := 0; i < countGorotine; i++ {
 		dumpDbChanTemp = append(dumpDbChanTemp, proccessDumpDB(listDatabases, &pathFile))
 	}
 	dumpDbChan := proccessMergeChan(dumpDbChanTemp...)
 
 	// Pipeline 2 archiveSqlToZip
-	var zipChanTemp []<-chan string
+	var zipChanTemp []<-chan NameFile
 	for i := 0; i < countGorotine; i++ {
 		zipChanTemp = append(zipChanTemp, proccessZipDB(dumpDbChan, &pathFile))
 	}
 	archiveZipChan := proccessMergeChan(zipChanTemp...)
 
 	// Pipeline 3 UploadFileToService
-	var uploadChanTemp []<-chan string
+	var uploadChanTemp []<-chan NameFile
 	for i := 0; i < countGorotine; i++ {
 		uploadChanTemp = append(uploadChanTemp, proccessUploadFile(archiveZipChan, &pathFile))
 	}
 	uploadFileChan := proccessMergeChan(uploadChanTemp...)
 
+	// Hapus file temporay sql dan zip
 	for value := range uploadFileChan {
-		fmt.Println(value)
-		os.Remove(value)
+		pathFileSql := fmt.Sprintf("%s/%s", pathFile.PathFileSql, value.NameFileSql)
+		pathFileZip := fmt.Sprintf("%s/%s", pathFile.PathFileZip, value.NameFileZip)
+		os.Remove(pathFileSql)
+		os.Remove(pathFileZip)
+
+		fmt.Printf("Database: %s Backup Success \n", value.NameFileZip)
 	}
 }
 
@@ -99,8 +109,8 @@ func getListDB(pathFile *PathFile) <-chan model.Database {
 }
 
 // fungsi untuk proses Dump Databases
-func proccessDumpDB(listDB <-chan model.Database, pathFile *PathFile) <-chan string {
-	dbChan := make(chan string)
+func proccessDumpDB(listDB <-chan model.Database, pathFile *PathFile) <-chan NameFile {
+	dbChan := make(chan NameFile)
 
 	go func() {
 		defer close(dbChan)
@@ -108,15 +118,14 @@ func proccessDumpDB(listDB <-chan model.Database, pathFile *PathFile) <-chan str
 
 			timesTamp := time.Now().Format("2006-01-02-15-04-05")
 			uuid := uuid.New().String()
-			nameFile := fmt.Sprintf("mysql-%s-%s-%s.sql", timesTamp, v.DatabaseName, uuid)
-			pathNameFileSql := fmt.Sprintf("%s/%s", pathFile.PathFileSql, nameFile)
+			nameFileSql := fmt.Sprintf("mysql-%s-%s-%s.sql", timesTamp, v.DatabaseName, uuid)
+			pathNameFileSql := fmt.Sprintf("%s/%s", pathFile.PathFileSql, nameFileSql)
 
 			file, err := os.Create(pathNameFileSql)
 			if err != nil {
 				fmt.Printf("Error creating file %s, Error: %s\n", pathNameFileSql, err)
 				return
 			}
-			defer file.Close()
 
 			cmd := exec.Command("mysqldump", "-h", v.DBHost, "-P", v.DBPort, "-u", v.DBUsername, "-p"+v.DBPassword, v.DatabaseName)
 			cmd.Stdout = file
@@ -128,7 +137,12 @@ func proccessDumpDB(listDB <-chan model.Database, pathFile *PathFile) <-chan str
 				return
 			}
 
-			dbChan <- nameFile
+			file.Close()
+
+			dbChan <- NameFile{
+				NameFileSql: nameFileSql,
+				NameFileZip: "",
+			}
 		}
 	}()
 
@@ -136,14 +150,15 @@ func proccessDumpDB(listDB <-chan model.Database, pathFile *PathFile) <-chan str
 }
 
 // fungsi untuk proses Zip dari database yg di dump sebelumnya
-func proccessZipDB(fileNameCh <-chan string, pathFile *PathFile) <-chan string {
-	zipChan := make(chan string)
+func proccessZipDB(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan NameFile {
+	zipChan := make(chan NameFile)
 	go func() {
 		defer close(zipChan)
 		for fileName := range fileNameCh {
 
-			pathNameFileSql := fmt.Sprintf("%s/%s", pathFile.PathFileSql, fileName)
-			pathNameFileZip := fmt.Sprintf("%s/%s.zip", pathFile.PathFileZip, fileName)
+			pathNameFileSql := fmt.Sprintf("%s/%s", pathFile.PathFileSql, fileName.NameFileSql)
+			nameFileZip := fmt.Sprintf("%s.zip", fileName.NameFileSql)
+			pathNameFileZip := fmt.Sprintf("%s/%s", pathFile.PathFileZip, nameFileZip)
 
 			archive, err := os.Create(pathNameFileZip)
 			if err != nil {
@@ -155,18 +170,18 @@ func proccessZipDB(fileNameCh <-chan string, pathFile *PathFile) <-chan string {
 
 			f, err := os.Open(pathNameFileSql)
 			if err != nil {
-				fmt.Printf("Error opening sql file %s, Error : %s\n", fileName, err)
+				fmt.Printf("Error opening sql file %s, Error : %s\n", fileName.NameFileSql, err)
 				return
 			}
 
-			w, err := zipWriter.Create(fileName)
+			w, err := zipWriter.Create(fileName.NameFileSql)
 			if err != nil {
-				fmt.Printf("Error creating file %s in zip, Error : %s\n", fileName, err)
+				fmt.Printf("Error creating file %s in zip, Error : %s\n", fileName.NameFileSql, err)
 				return
 			}
 
 			if _, err := io.Copy(w, f); err != nil {
-				fmt.Printf("Error copying file %s to zip , Error : %s\n", fileName, err)
+				fmt.Printf("Error copying file %s to zip , Error : %s\n", fileName.NameFileSql, err)
 				return
 			}
 
@@ -174,7 +189,10 @@ func proccessZipDB(fileNameCh <-chan string, pathFile *PathFile) <-chan string {
 			zipWriter.Close()
 			f.Close()
 
-			zipChan <- fmt.Sprintf("%s.zip", fileName)
+			zipChan <- NameFile{
+				NameFileSql: fileName.NameFileSql,
+				NameFileZip: nameFileZip,
+			}
 		}
 	}()
 
@@ -182,51 +200,59 @@ func proccessZipDB(fileNameCh <-chan string, pathFile *PathFile) <-chan string {
 }
 
 // fungsi untuk proses upload file ke service
-func proccessUploadFile(fileNameCh <-chan string, pathFile *PathFile) <-chan string {
-	uploadChan := make(chan string)
+func proccessUploadFile(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan NameFile {
+	uploadChan := make(chan NameFile)
 	go func() {
 		defer close(uploadChan)
 		for fileName := range fileNameCh {
 
 			serviceURL := os.Getenv("WEB_SERVICE_URL")
-			uploadURL := fmt.Sprintf("%s/bckp-database/%s", serviceURL, fileName)
-			pathNameFileZip := fmt.Sprintf("%s/%s", pathFile.PathFileZip, fileName)
+			uploadURL := fmt.Sprintf("%s/bckp-database/%s", serviceURL, fileName.NameFileZip)
+			pathNameFileZip := fmt.Sprintf("%s/%s", pathFile.PathFileZip, fileName.NameFileZip)
 
 			file, err := os.Open(pathNameFileZip)
 			if err != nil {
-				panic(err)
+				fmt.Printf("Error open file %s to zip , Error : %s\n", fileName.NameFileZip, err)
+				return
 			}
 
 			var requestBody bytes.Buffer
 			writer := multipart.NewWriter(&requestBody)
 
-			fileField, err := writer.CreateFormFile("zip_file", fileName)
+			fileField, err := writer.CreateFormFile("zip_file", fileName.NameFileZip)
 			if err != nil {
-				panic(err)
+				fmt.Printf("Error create form zip_file %s , Error : %s\n", fileName.NameFileZip, err)
+				return
 			}
 
 			_, err = io.Copy(fileField, file)
 			if err != nil {
-				panic(err)
+				fmt.Printf("Error copying file %s , Error : %s\n", fileName.NameFileZip, err)
+				return
 			}
 			writer.Close()
 
 			req, err := http.NewRequest("POST", uploadURL, &requestBody)
 			if err != nil {
-				panic(err)
+				fmt.Printf("Error new request %s , Error : %s\n", uploadURL, err)
+				return
 			}
 			req.Header.Set("Content-Type", writer.FormDataContentType())
 
 			client := &http.Client{}
 			resp, err := client.Do(req)
 			if err != nil {
-				panic(err)
+				fmt.Printf("Error send request %s, Error : %s\n", uploadURL, err)
+				return
 			}
 
 			resp.Body.Close()
 			file.Close()
 
-			uploadChan <- pathNameFileZip
+			uploadChan <- NameFile{
+				NameFileSql: fileName.NameFileSql,
+				NameFileZip: fileName.NameFileZip,
+			}
 		}
 	}()
 
@@ -234,14 +260,14 @@ func proccessUploadFile(fileNameCh <-chan string, pathFile *PathFile) <-chan str
 }
 
 // fungsi untuk proses mengabungkan channel
-func proccessMergeChan(chanMany ...<-chan string) <-chan string {
+func proccessMergeChan(chanMany ...<-chan NameFile) <-chan NameFile {
 	wg := sync.WaitGroup{}
 
-	mergedChan := make(chan string)
+	mergedChan := make(chan NameFile)
 
 	wg.Add(len(chanMany))
 	for _, eachChan := range chanMany {
-		go func(eachChan <-chan string) {
+		go func(eachChan <-chan NameFile) {
 			for eachChanData := range eachChan {
 				mergedChan <- eachChanData
 			}
