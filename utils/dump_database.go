@@ -74,10 +74,10 @@ func DumpDatabase() {
 
 	// Hapus file temporay sql dan zip
 	for value := range uploadFileChan {
-		pathFileSql := fmt.Sprintf("%s/%s", pathFile.PathFileSql, value.NameFileSql)
-		pathFileZip := fmt.Sprintf("%s/%s", pathFile.PathFileZip, value.NameFileZip)
-		os.Remove(pathFileSql)
-		os.Remove(pathFileZip)
+		// pathFileSql := fmt.Sprintf("%s/%s", pathFile.PathFileSql, value.NameFileSql)
+		// pathFileZip := fmt.Sprintf("%s/%s", pathFile.PathFileZip, value.NameFileZip)
+		// os.Remove(pathFileSql)
+		// os.Remove(pathFileZip)
 
 		mErr := fmt.Sprintf("Database: %s Backup Success \n", value.NameFileZip)
 		logger.Info(mErr)
@@ -176,6 +176,7 @@ func proccessZipDB(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan NameFi
 				logger.Error(mErr)
 				return
 			}
+			defer archive.Close()
 
 			zipWriter := zip.NewWriter(archive)
 
@@ -186,6 +187,7 @@ func proccessZipDB(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan NameFi
 				logger.Error(mErr)
 				return
 			}
+			defer f.Close()
 
 			w, err := zipWriter.Create(fileName.NameFileSql)
 			if err != nil {
@@ -201,10 +203,7 @@ func proccessZipDB(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan NameFi
 				logger.Error(mErr)
 				return
 			}
-
-			archive.Close()
 			zipWriter.Close()
-			f.Close()
 
 			zipChan <- NameFile{
 				NameFileSql: fileName.NameFileSql,
