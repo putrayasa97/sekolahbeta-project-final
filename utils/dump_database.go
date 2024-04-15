@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -223,6 +224,7 @@ func proccessUploadFile(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan N
 		for fileName := range fileNameCh {
 
 			serviceURL := os.Getenv("WEB_SERVICE_URL")
+			bearerToken := "Bearer " + os.Getenv("WEB_SERIVCE_STATIC_KEY")
 			uploadURL := fmt.Sprintf("%s/bckp-database/%s", serviceURL, fileName.NameFileZip)
 			pathNameFileZip := fmt.Sprintf("%s/%s", pathFile.PathFileZip, fileName.NameFileZip)
 
@@ -234,10 +236,10 @@ func proccessUploadFile(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan N
 				return
 			}
 
-			var requestBody bytes.Buffer
-			writer := multipart.NewWriter(&requestBody)
+			requestBody := &bytes.Buffer{}
+			writer := multipart.NewWriter(requestBody)
 
-			fileField, err := writer.CreateFormFile("zip_file", fileName.NameFileZip)
+			fileField, err := writer.CreateFormFile("zip_file", filepath.Base(fileName.NameFileZip))
 			if err != nil {
 				mErr := fmt.Sprintf("Error create form zip_file %s , Error : %s\n", fileName.NameFileZip, err)
 				fmt.Println(mErr)
@@ -252,23 +254,40 @@ func proccessUploadFile(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan N
 				logger.Error(mErr)
 				return
 			}
-			writer.Close()
 
-			req, err := http.NewRequest("POST", uploadURL, &requestBody)
+			err = writer.Close()
+			if err != nil {
+				mErr := fmt.Sprintf("Error writer close zip %s, Error : %s\n", fileName.NameFileZip, err)
+				fmt.Println(mErr)
+				logger.Error(mErr)
+				return
+			}
+
+			req, err := http.NewRequest("POST", uploadURL, requestBody)
 			if err != nil {
 				mErr := fmt.Sprintf("Error new request %s , Error : %s\n", uploadURL, err)
 				fmt.Println(mErr)
 				logger.Error(mErr)
 				return
 			}
-			req.Header.Set("Content-Type", writer.FormDataContentType())
 
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+			req.Header.Add("Authorization", bearerToken)
 			client := &http.Client{}
+
 			resp, err := client.Do(req)
+
 			if err != nil {
 				mErr := fmt.Sprintf("Error send request %s, Error : %s\n", uploadURL, err)
 				fmt.Println(mErr)
 				logger.Error(mErr)
+				return
+			}
+
+			if resp.StatusCode != http.StatusCreated {
+				mErr := fmt.Sprintf("Error send request status: %s \n", resp.Status)
+				fmt.Println(mErr)
+				logger.Info(mErr)
 				return
 			}
 
