@@ -49,37 +49,34 @@ func DumpDatabase() {
 	os.MkdirAll(pathFile.PathFileZip, 0777)
 
 	listDatabases := getListDB(&pathFile)
-	countGorotine := 5
+	// countGorotine := 4
 
 	// Pipeline 1 DumpDatabases
 	var dumpDbChanTemp []<-chan NameFile
-	for i := 0; i < countGorotine; i++ {
+	for i := 0; i < 3; i++ {
 		dumpDbChanTemp = append(dumpDbChanTemp, proccessDumpDB(listDatabases, &pathFile))
 	}
 	dumpDbChan := proccessMergeChan(dumpDbChanTemp...)
 
 	// Pipeline 2 archiveSqlToZip
 	var zipChanTemp []<-chan NameFile
-	for i := 0; i < countGorotine; i++ {
+	for i := 0; i < 6; i++ {
 		zipChanTemp = append(zipChanTemp, proccessZipDB(dumpDbChan, &pathFile))
 	}
 	archiveZipChan := proccessMergeChan(zipChanTemp...)
 
 	// Pipeline 3 UploadFileToService
 	var uploadChanTemp []<-chan NameFile
-	for i := 0; i < countGorotine; i++ {
+	for i := 0; i < 3; i++ {
 		uploadChanTemp = append(uploadChanTemp, proccessUploadFile(archiveZipChan, &pathFile))
 	}
 	uploadFileChan := proccessMergeChan(uploadChanTemp...)
 
 	// Hapus file temporay sql dan zip
-	for value := range uploadFileChan {
-		// pathFileSql := fmt.Sprintf("%s/%s", pathFile.PathFileSql, value.NameFileSql)
-		// pathFileZip := fmt.Sprintf("%s/%s", pathFile.PathFileZip, value.NameFileZip)
-		// os.Remove(pathFileSql)
-		// os.Remove(pathFileZip)
+	for nameFile := range uploadFileChan {
+		removeFileTemp(&pathFile, nameFile)
 
-		mErr := fmt.Sprintf("Database: %s Backup Success \n", value.NameFileZip)
+		mErr := fmt.Sprintf("Database: %s Backup Success \n", nameFile.NameFileZip)
 		logger.Info(mErr)
 	}
 }
@@ -133,6 +130,7 @@ func proccessDumpDB(listDB <-chan model.Database, pathFile *PathFile) <-chan Nam
 				logger.Error(mErr)
 				return
 			}
+			defer file.Close()
 
 			cmd := exec.Command("mysqldump", "-h", v.DBHost, "-P", v.DBPort, "-u", v.DBUsername, "-p"+v.DBPassword, v.DatabaseName)
 			cmd.Stdout = file
@@ -145,8 +143,6 @@ func proccessDumpDB(listDB <-chan model.Database, pathFile *PathFile) <-chan Nam
 				os.Remove(pathNameFileSql)
 				return
 			}
-
-			file.Close()
 
 			dbChan <- NameFile{
 				NameFileSql: nameFileSql,
@@ -227,6 +223,11 @@ func proccessUploadFile(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan N
 			uploadURL := fmt.Sprintf("%s/bckp-database/%s", serviceURL, fileName.NameFileZip)
 			pathNameFileZip := fmt.Sprintf("%s/%s", pathFile.PathFileZip, fileName.NameFileZip)
 
+			uploadChan <- NameFile{
+				NameFileSql: fileName.NameFileSql,
+				NameFileZip: fileName.NameFileZip,
+			}
+
 			file, err := os.Open(pathNameFileZip)
 			if err != nil {
 				mErr := fmt.Sprintf("Error open file %s to zip , Error : %s\n", fileName.NameFileZip, err)
@@ -234,6 +235,7 @@ func proccessUploadFile(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan N
 				logger.Error(mErr)
 				return
 			}
+			defer file.Close()
 
 			requestBody := &bytes.Buffer{}
 			writer := multipart.NewWriter(requestBody)
@@ -284,19 +286,14 @@ func proccessUploadFile(fileNameCh <-chan NameFile, pathFile *PathFile) <-chan N
 			}
 
 			if resp.StatusCode != http.StatusCreated {
-				mErr := fmt.Sprintf("Error send request status: %s \n", resp.Status)
+				body, _ := io.ReadAll(resp.Body)
+				mErr := fmt.Sprintf("Error send request %s, Error : %s\n", uploadURL, string(body))
 				fmt.Println(mErr)
 				logger.Info(mErr)
 				return
 			}
 
-			resp.Body.Close()
-			file.Close()
-
-			uploadChan <- NameFile{
-				NameFileSql: fileName.NameFileSql,
-				NameFileZip: fileName.NameFileZip,
-			}
+			defer resp.Body.Close()
 		}
 	}()
 
@@ -325,4 +322,11 @@ func proccessMergeChan(chanMany ...<-chan NameFile) <-chan NameFile {
 	}()
 
 	return mergedChan
+}
+
+func removeFileTemp(pathFile *PathFile, nameFile NameFile) {
+	pathFileSql := fmt.Sprintf("%s/%s", pathFile.PathFileSql, nameFile.NameFileSql)
+	pathFileZip := fmt.Sprintf("%s/%s", pathFile.PathFileZip, nameFile.NameFileZip)
+	os.Remove(pathFileZip)
+	os.Remove(pathFileSql)
 }
