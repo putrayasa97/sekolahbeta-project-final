@@ -3,6 +3,7 @@ package main
 import (
 	"cli-service/utils"
 	"cli-service/utils/logger"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -26,7 +27,8 @@ func main() {
 
 	defer scheduler.Stop()
 
-	scheduler.AddFunc("*/1 * * * *", func() { utils.DumpDatabase() })
+	logger.Info(fmt.Sprintln("Scheduler Run.."))
+	scheduler.AddFunc("*/1 * * * *", func() { utils.BackupProcess() })
 
 	go scheduler.Start()
 
