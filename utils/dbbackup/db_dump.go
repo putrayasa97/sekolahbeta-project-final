@@ -1,4 +1,4 @@
-package utils
+package dbbackup
 
 import (
 	"cli-service/model"
@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func DumpDatabase(pathFile *model.PathFile, db model.Database) (model.NameFile, string, error) {
+func dumpDatabase(pathFile *model.PathFile, db model.Database) (model.NameFile, string, error) {
 	timesTamp := time.Now().Format("2006-01-02-15-04-05")
 	uuid := uuid.New().String()
 	nameFileSql := fmt.Sprintf("mysql-%s-%s-%s.sql", timesTamp, db.DatabaseName, uuid)

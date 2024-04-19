@@ -1,4 +1,4 @@
-package utils
+package dbbackup
 
 import (
 	"cli-service/model"
@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-func RemoveFileTemp(pathFile *model.PathFile, nameFile model.NameFile) {
+func removeFile(pathFile *model.PathFile, nameFile model.NameFile) {
 	pathFileSql := fmt.Sprintf("%s/%s", pathFile.PathFileSql, nameFile.NameFileSql)
 	pathFileZip := fmt.Sprintf("%s/%s", pathFile.PathFileZip, nameFile.NameFileZip)
 	os.Remove(pathFileZip)

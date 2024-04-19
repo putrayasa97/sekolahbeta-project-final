@@ -1,4 +1,4 @@
-package utils
+package dbbackup
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 )
 
-func UploadFile(pathFile *model.PathFile, fileName model.NameFile) (string, error) {
+func uploadFile(pathFile *model.PathFile, fileName model.NameFile) (string, error) {
 	serviceURL := os.Getenv("WEB_SERVICE_URL")
 	bearerToken := "Bearer " + os.Getenv("WEB_SERIVCE_STATIC_KEY")
 	uploadURL := fmt.Sprintf("%s/bckp-database/%s", serviceURL, fileName.NameFileZip)

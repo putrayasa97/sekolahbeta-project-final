@@ -1,7 +1,7 @@
 package main
 
 import (
-	"cli-service/utils"
+	"cli-service/utils/dbbackup"
 	"cli-service/utils/logger"
 	"fmt"
 	"os"
@@ -28,7 +28,7 @@ func main() {
 	defer scheduler.Stop()
 
 	logger.Info(fmt.Sprintln("Scheduler Run.."))
-	scheduler.AddFunc("*/1 * * * *", func() { utils.BackupProcess() })
+	scheduler.AddFunc("*/1 * * * *", func() { dbbackup.BackupRunner() })
 
 	go scheduler.Start()
 

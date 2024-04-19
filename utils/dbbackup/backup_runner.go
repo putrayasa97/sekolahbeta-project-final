@@ -1,4 +1,4 @@
-package utils
+package dbbackup
 
 import (
 	"cli-service/model"
@@ -17,7 +17,7 @@ import (
 // TODO 5. Hapus file temporary sql dan zip ketik selesai proses upload
 // Proses ini menggunakan konsep Concurency: Pipeline Pattern
 
-func BackupProcess() {
+func BackupRunner() {
 	pathFile := model.PathFile{
 		PathDBJson:  "config/databases.json",
 		PathFileSql: "temp/sql",
@@ -55,7 +55,7 @@ func BackupProcess() {
 
 	// Hapus file temporay sql dan zip
 	for nameFile := range uploadFileChan {
-		RemoveFileTemp(&pathFile, nameFile)
+		removeFile(&pathFile, nameFile)
 
 		mErr := fmt.Sprintf("Database: %s Telah diproses \n", nameFile.NameFileZip)
 		logger.Info(mErr)
@@ -104,7 +104,7 @@ func processDumpDB(listDB <-chan model.Database, pathFile *model.PathFile) <-cha
 	go func() {
 		defer close(dbChan)
 		for db := range listDB {
-			nameFile, mErr, err := DumpDatabase(pathFile, db)
+			nameFile, mErr, err := dumpDatabase(pathFile, db)
 			if err != nil {
 				logger.Error(mErr)
 			}
@@ -122,7 +122,7 @@ func processArchiveDB(fileNameCh <-chan model.NameFile, pathFile *model.PathFile
 	go func() {
 		defer close(zipChan)
 		for fileName := range fileNameCh {
-			nameFile, mErr, err := ArchiveDatabase(*pathFile, fileName)
+			nameFile, mErr, err := archiveDatabase(*pathFile, fileName)
 			if err != nil {
 				logger.Error(mErr)
 			}
@@ -140,7 +140,7 @@ func processUploadFile(fileNameCh <-chan model.NameFile, pathFile *model.PathFil
 	go func() {
 		defer close(uploadChan)
 		for fileName := range fileNameCh {
-			mErr, err := UploadFile(pathFile, fileName)
+			mErr, err := uploadFile(pathFile, fileName)
 			if err != nil {
 				logger.Error(mErr)
 			}

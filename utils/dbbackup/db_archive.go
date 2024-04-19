@@ -1,4 +1,4 @@
-package utils
+package dbbackup
 
 import (
 	"archive/zip"
@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-func ArchiveDatabase(pathFile model.PathFile, fileName model.NameFile) (model.NameFile, string, error) {
+func archiveDatabase(pathFile model.PathFile, fileName model.NameFile) (model.NameFile, string, error) {
 	pathNameFileSql := fmt.Sprintf("%s/%s", pathFile.PathFileSql, fileName.NameFileSql)
 	nameFileZip := fmt.Sprintf("%s.zip", fileName.NameFileSql)
 	pathNameFileZip := fmt.Sprintf("%s/%s", pathFile.PathFileZip, nameFileZip)
