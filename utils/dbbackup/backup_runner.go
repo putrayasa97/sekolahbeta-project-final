@@ -19,7 +19,7 @@ import (
 
 func BackupRunner() {
 	pathFile := model.PathFile{
-		PathDBJson:  "config/databases.json",
+		PathDBJson:  "databases.json",
 		PathFileSql: "temp/sql",
 		PathFileZip: "temp/zip",
 	}
@@ -74,7 +74,7 @@ func getListDB(pathFile *model.PathFile) <-chan model.Database {
 
 	dataJson, err := os.ReadFile(pathFile.PathDBJson)
 	if err != nil {
-		logger.Error(fmt.Sprintln(err))
+		logger.Error(fmt.Sprintln("File databases.json tidak ditemukan !"))
 		return nil
 	}
 
