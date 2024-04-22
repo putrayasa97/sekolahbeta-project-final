@@ -3,6 +3,7 @@ package dbbackup
 import (
 	"bytes"
 	"cli-service/model"
+	"cli-service/utils/logger"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -67,7 +68,7 @@ func uploadFile(pathFile *model.PathFile, fileName model.NameFile) (string, erro
 	if resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
 		mErr = fmt.Sprintf("Error send request %s, Error : %s\n", uploadURL, string(body))
-		return mErr, err
+		logger.Error(mErr)
 	}
 
 	defer resp.Body.Close()
