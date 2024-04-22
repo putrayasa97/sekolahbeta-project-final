@@ -16,7 +16,7 @@ func archiveDatabase(pathFile model.PathFile, fileName model.NameFile) (model.Na
 
 	archive, err := os.Create(pathNameFileZip)
 	if err != nil {
-		mErr = fmt.Sprintf("Error creating zip file %s, Error : %s\n", pathNameFileZip, err)
+		mErr = fmt.Sprintf("Error creating zip file %s, Error : %s\n", pathNameFileZip, err.Error())
 		return model.NameFile{
 			NameFileSql: fileName.NameFileSql,
 			NameFileZip: nameFileZip,
@@ -28,7 +28,7 @@ func archiveDatabase(pathFile model.PathFile, fileName model.NameFile) (model.Na
 
 	f, err := os.Open(pathNameFileSql)
 	if err != nil {
-		mErr = fmt.Sprintf("Error opening sql file %s, Error : %s\n", fileName.NameFileSql, err)
+		mErr = fmt.Sprintf("Error opening sql file %s, Error : %s\n", fileName.NameFileSql, err.Error())
 		return model.NameFile{
 			NameFileSql: fileName.NameFileSql,
 			NameFileZip: nameFileZip,
@@ -38,7 +38,7 @@ func archiveDatabase(pathFile model.PathFile, fileName model.NameFile) (model.Na
 
 	w, err := zipWriter.Create(fileName.NameFileSql)
 	if err != nil {
-		mErr = fmt.Sprintf("Error creating file %s in zip, Error : %s\n", fileName.NameFileSql, err)
+		mErr = fmt.Sprintf("Error creating file %s in zip, Error : %s\n", fileName.NameFileSql, err.Error())
 		return model.NameFile{
 			NameFileSql: fileName.NameFileSql,
 			NameFileZip: nameFileZip,
@@ -46,7 +46,7 @@ func archiveDatabase(pathFile model.PathFile, fileName model.NameFile) (model.Na
 	}
 
 	if _, err := io.Copy(w, f); err != nil {
-		mErr = fmt.Sprintf("Error copying file %s to zip , Error : %s\n", fileName.NameFileSql, err)
+		mErr = fmt.Sprintf("Error copying file %s to zip , Error : %s\n", fileName.NameFileSql, err.Error())
 		return model.NameFile{
 			NameFileSql: fileName.NameFileSql,
 			NameFileZip: nameFileZip,
@@ -55,7 +55,8 @@ func archiveDatabase(pathFile model.PathFile, fileName model.NameFile) (model.Na
 	zipWriter.Close()
 
 	return model.NameFile{
-		NameFileSql: fileName.NameFileSql,
-		NameFileZip: nameFileZip,
+		NameFileSql:      fileName.NameFileSql,
+		NameFileZip:      nameFileZip,
+		NameDatabaseFile: fileName.NameDatabaseFile,
 	}, mErr, nil
 }

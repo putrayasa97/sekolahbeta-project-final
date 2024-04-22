@@ -33,5 +33,5 @@ func dumpDatabase(pathFile *model.PathFile, db model.Database) (model.NameFile, 
 		return model.NameFile{NameFileSql: nameFileSql}, mErr, err
 	}
 
-	return model.NameFile{NameFileSql: nameFileSql}, mErr, nil
+	return model.NameFile{NameFileSql: nameFileSql, NameDatabaseFile: db.DatabaseName}, mErr, nil
 }
