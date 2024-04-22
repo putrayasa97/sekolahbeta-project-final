@@ -55,9 +55,12 @@ func BackupRunner() {
 
 	// Hapus file temporay sql dan zip
 	for nameFile := range uploadFileChan {
-		removeFile(&pathFile, nameFile)
+		mErr, err := removeFile(&pathFile, nameFile)
+		if err != nil {
+			logger.Error(mErr)
+		}
 
-		mErr := fmt.Sprintf("Database: %s Telah diproses \n", nameFile.NameFileZip)
+		mErr = fmt.Sprintf("Database: %s Telah diproses \n", nameFile.NameFileZip)
 		logger.Info(mErr)
 	}
 
