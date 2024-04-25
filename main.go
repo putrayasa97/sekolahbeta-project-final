@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/robfig/cron/v3"
@@ -22,8 +21,7 @@ func InitEnv() {
 func main() {
 	InitEnv()
 
-	timeZone, _ := time.LoadLocation("Asia/Makassar")
-	scheduler := cron.New(cron.WithLocation(timeZone))
+	scheduler := cron.New()
 
 	defer scheduler.Stop()
 

@@ -1,16 +1,18 @@
 version: '3'
 services:
 
-  # app:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   image: golang
-  #   container_name: app
-  #   restart: unless-stopped
-  #   working_dir: /app
-  #   volumes:
-  #     - .:/app
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: app_client
+    container_name: app_client
+    volumes:
+      - ./.env:/root/.env
+      - ./databases.json:/root/databases.json
+      - ./logger.log:/root/logger.log
+    depends_on:
+      - mysql
 
   #MySQL
   mysql:
@@ -19,7 +21,7 @@ services:
       - mysql:/var/lib/mysql
     restart: unless-stopped
     ports:
-      - "33067:3306"
+      - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_USER: golang
